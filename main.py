@@ -25,3 +25,18 @@ def view():
     data=load_data()
 
     return data
+
+#dynamic segment
+@app.get("/patient/{patient_id}")
+def view_patient(patient_id : str):
+     
+    #load all patients
+    data=load_data()
+
+    if patient_id in data:
+        return data[patient_id]
+    
+    else:
+        return {"Error":"Patient not found"}
+    
+
