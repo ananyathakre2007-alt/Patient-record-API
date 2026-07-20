@@ -1,7 +1,41 @@
 from fastapi import FastAPI,Path, HTTPException,Query
+from pydantic import BaseModel,Field,computed_field
+from typing import Annotated,Optional,Literal
 import json
 
 app=FastAPI()
+
+class Patient(BaseModel):
+    id:Annotated[str,Field(...,description='id of the patient',example=['P001'])]
+    name:Annotated[str,Field(...,description='name of the patient')]
+    city:Annotated[str,Field(...,description='city of the patient ')]
+    age:Annotated[int,Field(...,gt=0,lt=120,description='age of the patient')]
+    gender:Annotated[Literal['male','female','others'],Field(...,description='gender of the patient')]
+    height:Annotated[float,Field(...,gt=0,description='Height of the patient in meters')]
+    weight:Annotated[float,Field(...,gt=0,description='weight of the patient in kgs')]
+
+    @computed_field
+    @property
+    def bmi(self)->float:
+        bmi=round(self.weight/(self.height**2),2)
+    
+    @computed_field
+    @property
+    def verdict(self)->str:
+        if self.bmi<18.5:
+            return 'Underweight'
+        elif self.bmi<25:
+            return 'Normal'
+        elif self.bmi<30:
+            return 'Normal'
+        else:
+            return 'Obese'
+
+
+
+    
+    
+
 
 def load_data():
     with open('patients.json','r') as f:
@@ -52,7 +86,7 @@ def sort_patients(sort_by : str= Query(...,description='sort patients on the bas
     data=load_data()
     sort_order=True if order=='desc' else False
 
-    sorted_data=sorted(data.values(), key=lambda x: x.get(sort_by, 0),reversed=sort_order)
+    sorted_data=sorted(data.values(), key=lambda x: x.get(sort_by, 0),reverse=sort_order)
 
     return sorted_data
 
