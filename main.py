@@ -33,10 +33,13 @@ class Patient(BaseModel):
         else:
             return 'Obese'
 
-
-
-    
-    
+class patientupdate(BaseModel):
+    name:Annotated[Optional[str],Field(default=None)]
+    city:Annotated[Optional[str],Field(default=None)]
+    age:Annotated[Optional[int],Field(gt=0,lt=120,default=None)]
+    gender:Annotated[Optional[Literal['male','Male','Female','Others','female','others']],Field(default=None)]
+    height:Annotated[Optional[float],Field(gt=0,default=None)]
+    weight:Annotated[Optional[float],Field(gt=0,default=None)]
 
 
 def load_data():
@@ -106,12 +109,103 @@ def create_patient(patient:Patient):
         raise HTTPException(400,detail='Patient already exists')
     
     #Add new patient to database
-    data[patient.id]=patient.model_dump(exclude=['id'])
+    data[patient.id]=patient.model_dump(exclude=['id'])#converts object into dictionary
 
     #save into json file
     save_data(data)
 
     return JSONResponse(status_code=201,content={'message':'Pateint added successfully'})
 
+@app.put('/edit/{patient_id}')
+def edit_patient(patient_id:str,patient_update:patientupdate):
+    data=load_data()
 
+    if patient_id not in data:
+        raise HTTPException(404,detail='Patient not found')
     
+    existing_patient_info=data[patient_id]
+
+    updated_patient_info=patient_update.model_dump(exclude_unset=True)#converts the model into dictionary and unset returns only value which donot have none value
+
+    for i in updated_patient_info:
+        existing_patient_info[i]= updated_patient_info[i]
+
+    #but these is a major problem in this and that is if we change weight or height bmi and verdict will change and hence we need to compute that again 
+    #for that we will create a pydantic object of new update_patient_info so all the features will be computed again then that we will convert into dictionary and then into json
+        
+    #existing_patient_info->pydantic obj ->updated bmi+verdict
+
+    existing_patient_info['id']=patient_id
+    patient_pydantic_obj=Patient(**existing_patient_info)
+
+    #pydantic object to dictionary
+    existing_patient_info=patient_pydantic_obj.model_dump(exclude='id')
+
+    data[patient_id]= existing_patient_info
+
+    #add this dictionary to data
+    save_data(data)
+
+    return JSONResponse(status_code=201,content={'message':'Pateint updated successfully'})
+
+    """Client Request (JSON)       
+        │
+        ▼
+    FastAPI automatically converts
+            │
+            ▼
+    Pydantic Object (Patient)
+            │
+            ├── Validation
+            ├── Default values
+            ├── Validators (BMI, Verdict, etc.)
+            │
+            ▼
+    model_dump()
+            │
+            ▼
+    Dictionary (Python dict)
+            │
+            ▼
+    json.dump()
+            │
+            ▼
+    patients.json (JSON File)
+    
+    While Updating:
+
+    patients.json
+          │
+    json.load()
+          ▼
+    Dictionary
+          │
+    Update required fields
+          ▼
+    Dictionary
+          │
+    Patient(**dict)
+          ▼
+    Pydantic Object
+          │
+    Validators run again
+    (BMI & Verdict recalculated)
+          ▼
+    model_dump()
+          ▼
+    Dictionary
+          │
+    json.dump()
+          ▼
+    Updated patients.json"""
+
+@app.delete("/delete/{patient_id}")
+def delete_patient(patient_id:str):
+    data=load_data()
+    if patient_id not in data:
+        raise HTTPException(404,detail='Patient not found')
+    
+    del data[patient_id]
+
+    save_data(data)
+    return JSONResponse(status_code=201,content={'message':'Pateint deleted successfully'})
